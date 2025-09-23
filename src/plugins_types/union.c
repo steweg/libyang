@@ -469,9 +469,6 @@ lyplg_type_store_union(const struct ly_ctx *ctx, const struct lysc_type *type, c
         ret = lyb_fill_subvalue(ctx, type_u, value, value_len, prefix_data, subvalue, &options, unres, err);
         LY_CHECK_GOTO((ret != LY_SUCCESS) && (ret != LY_EINCOMPLETE), cleanup);
     } else {
-        /* to correctly resolve the union type, we need to always validate the value */
-        options &= ~LYPLG_TYPE_STORE_ONLY;
-
         /* store value to subvalue */
         ret = union_subvalue_assignment(value, value_len, &subvalue->original, &subvalue->orig_len, &options);
         LY_CHECK_GOTO(ret, cleanup);
@@ -481,9 +478,15 @@ lyplg_type_store_union(const struct ly_ctx *ctx, const struct lysc_type *type, c
                 &subvalue->prefix_data);
         LY_CHECK_GOTO(ret, cleanup);
 
-        /* use the first usable subtype to store the value */
-        ret = union_find_type(ctx, type_u, subvalue, options, 0, NULL, NULL, NULL, unres, err);
-        LY_CHECK_GOTO((ret != LY_SUCCESS) && (ret != LY_EINCOMPLETE), cleanup);
+        /* use the first usable and valid subtype to store the value */
+        ret = union_find_type(ctx, type_u, subvalue, options & ~LYPLG_TYPE_STORE_ONLY, 0, NULL, NULL, NULL, unres, err);
+        if (ret && (ret != LY_EINCOMPLETE) && (options & LYPLG_TYPE_STORE_ONLY)) {
+            /* we tried to find the actual type by validating the value but no type matched, so try to find any type */
+            ly_err_free(*err);
+            *err = NULL;
+            ret = union_find_type(ctx, type_u, subvalue, options, 0, NULL, NULL, NULL, unres, err);
+        }
+        LY_CHECK_GOTO(ret && (ret != LY_EINCOMPLETE), cleanup);
     }
 
     /* store canonical value, if any (use the specific type value) */
