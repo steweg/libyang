@@ -1967,7 +1967,7 @@ lyd_validate_subtree(struct lyd_node *root, struct ly_set *node_when, struct ly_
 
         if (lysc_has_when(node->schema)) {
             /* when evaluation */
-            r = ly_set_add(node_when, (void *)node, 1, NULL);
+            r = ly_set_add(node_when, (void *)node, 0, NULL);
             LY_CHECK_ERR_GOTO(r, rc = r, cleanup);
         }
 
